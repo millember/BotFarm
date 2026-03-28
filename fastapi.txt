@@ -1,0 +1,38 @@
+FastAPI автоматически создаёт документацию. Откройте в браузере:
+http://localhost:8000/docs — интерактивная документация
+http://localhost:8000/redoc — альтернативная документация
+Это уже работает! Вы увидите страницу с вашим эндпоинтом.
+
+Запуск:
+uvicorn main:botfarm --reload
+botfarm название прилодения
+
+
+from pydantic import BaseModel	Базовый класс для валидации данных	Чтобы создавать классы, которые проверяют данные
+from datetime import datetime	Класс для работы с датой и временем	Чтобы хранить, когда создан пользователь
+from typing import Optional	Тип "может быть None"	Чтобы указать, что поле может быть пустым
+from uuid import UUID	Тип для уникальных идентификаторов	Чтобы хранить ID в формате UUID
+from uuid import uuid4	Функция для создания UUID	Генерируем уникальный ID для каждого пользователя
+from fastapi import FastAPI	Главный класс FastAPI	Создаём веб-приложение
+
+
+user_datebase = []
+Создаём пустой список для хранения пользователей
+Пока без базы данных, храним всё в памяти
+Важно: при перезапуске сервера данные потеряются
+
+
+@botfarm.post("/users")	Реагирует на POST-запросы по адресу /users
+response_model=UserResponse	FastAPI отформатирует ответ по схеме UserResponse
+status_code=201	Код ответа "Создано" (вместо стандартного 200)
+user: UserCreate	FastAPI проверит входящий JSON по схеме UserCreate
+
+
+@botfarm.get("/users", response_model=list[UserResponse])
+def get_users():
+    return user_datebase
+Что происходит:
+Клиент заходит на GET /users
+FastAPI вызывает функцию get_users()
+Функция просто возвращает весь список user_datebase
+FastAPI превращает список в JSON и отправляет клиенту
