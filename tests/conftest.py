@@ -6,14 +6,15 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlalchemy import text
+import os
 
 from main import botfarm
 from database import Base, get_database
 
 # Тестовая база данных
-TEST_DATABASE_URL = "postgresql+asyncpg://oppennec@localhost:5432/botfarm_test"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://oppennec:password@db:5432/botfarm")
 
-engine_test = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
+engine_test = create_async_engine(DATABASE_URL, echo=False, poolclass=NullPool)
 
 AsyncSessionLocalTest = async_sessionmaker(
     engine_test, class_=AsyncSession, expire_on_commit=False
