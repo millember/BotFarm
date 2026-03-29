@@ -25,7 +25,7 @@
 ### Через Docker (рекомендуется)
 
 ```bash
-git clone <your-repo-url>
+git clone git@github.com:millember/BotFarm.git
 cd botfarm
 docker-compose up --build
 ```
