@@ -14,6 +14,7 @@ from services.users import (
     delete_user as delete_user_service,
 )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_database()
@@ -72,3 +73,17 @@ async def delete_user(user_id: UUID, database: AsyncSession = Depends(get_databa
     if not deleted:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": f"User {user_id} deleted"}
+
+
+@botfarm.get("/live")
+def liveness():
+    return {"status": "alive"}
+
+
+@botfarm.get("/ready")
+async def readiness(database: AsyncSession = Depends(get_database)):
+    try:
+        await database.execute(text("SELECT 1"))
+        return {"status": "ready"}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Not ready")

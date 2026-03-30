@@ -3,7 +3,9 @@ from sqlalchemy.orm import declarative_base
 from typing import AsyncGenerator
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://oppennec@localhost:5432/botfarm")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql+asyncpg://oppennec@localhost:5432/botfarm"
+)
 SQL_ECHO = os.getenv("SQL_ECHO", "").lower() in ("1", "true", "yes")
 engine = create_async_engine(DATABASE_URL, echo=SQL_ECHO)
 

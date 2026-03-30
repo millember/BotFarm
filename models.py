@@ -2,8 +2,9 @@ from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from database import Base
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from config import MOSCOW_TZ
+
 
 class User(Base):
     __tablename__ = "users"

@@ -7,15 +7,17 @@ from typing import Literal
 Env = Literal["prod", "stage", "preriod"]
 Domain = Literal["canary", "regular"]
 
+
 class BaseUser(BaseModel):
     login: EmailStr
     project_id: UUID
     env: Env
     domain: Domain
 
+
 class UserCreate(BaseUser):
     password: str
-    
+
 
 class UserResponse(BaseUser):
     id: UUID

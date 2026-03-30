@@ -19,7 +19,7 @@
 - Pydantic
 - Poetry
 - Docker / Docker Compose
-- Pytest (покрытие 77%+)
+- Pytest (покрытие 85%+)
 
 ## Быстрый старт
 
@@ -97,9 +97,9 @@ curl http://localhost:8000/users
 
 ```bash
 # В Docker
-docker-compose exec app poetry run pytest tests/test_basic.py -v --cov=. --cov-report=term
+docker-compose exec app pytest tests/test_basic.py -v --cov=. --cov-report=term
 
-# Локально
+# Локально с Poetry
 poetry run pytest tests/test_basic.py -v --cov=. --cov-report=term
 ```
 
@@ -108,23 +108,27 @@ poetry run pytest tests/test_basic.py -v --cov=. --cov-report=term
 | Переменная | Значение по умолчанию | Описание |
 |------------|----------------------|----------|
 | DATABASE_URL | `postgresql+asyncpg://oppennec:password@db:5432/botfarm` | URL подключения к БД |
+| SQL_ECHO | `false` | Логирование SQL запросов |
 
 ## Структура проекта
 
 ```
 botfarm/
-├── main.py
-├── models.py
-├── schemas.py
-├── auth.py
-├── database.py
+├── main.py                 # FastAPI приложение (роутеры)
+├── models.py               # SQLAlchemy модели
+├── schemas.py              # Pydantic схемы
+├── auth.py                 # Хеширование паролей
+├── database.py             # Подключение к БД
+├── config.py               # Конфигурация (таймзона, SQL)
+├── services/
+│   └── users.py            # Бизнес-логика
+├── tests/
+│   ├── conftest.py         # Фикстуры для тестов
+│   └── test_basic.py       # Тесты
 ├── pyproject.toml          # Конфигурация Poetry
 ├── poetry.lock             # Фиксация версий
 ├── Dockerfile
 ├── docker-compose.yml
-├── tests/
-│   ├── conftest.py
-│   └── test_basic.py
 └── README.md
 ```
 

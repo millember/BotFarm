@@ -1,6 +1,7 @@
 # services/users.py
 from uuid import uuid4
 from datetime import datetime, timedelta
+from typing import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -9,9 +10,7 @@ from uuid import UUID
 from models import User
 from schemas import UserCreate
 from auth import hash_password
-from config import MOSCOW_TZ, _LOCK_ONE_USER_SQL
-
-LOCK_DURATION_MINUTES = 30
+from config import MOSCOW_TZ, _LOCK_ONE_USER_SQL, LOCK_DURATION_MINUTES
 
 
 async def create_user(database: AsyncSession, user: UserCreate) -> User:
@@ -38,7 +37,7 @@ async def create_user(database: AsyncSession, user: UserCreate) -> User:
     return database_user
 
 
-async def get_users(database: AsyncSession) -> list[User]:
+async def get_users(database: AsyncSession) -> Sequence[User]:
     """Получение всех пользователей"""
     results = await database.execute(select(User).order_by(User.created_at))
     users = results.scalars().all()
@@ -48,7 +47,9 @@ async def get_users(database: AsyncSession) -> list[User]:
 async def lock_user(database: AsyncSession) -> User:
     now_moscow = datetime.now(MOSCOW_TZ)
     new_lock = now_moscow + timedelta(minutes=LOCK_DURATION_MINUTES)
-    result = await database.execute(_LOCK_ONE_USER_SQL, {"now": now_moscow, "new_lock": new_lock})
+    result = await database.execute(
+        _LOCK_ONE_USER_SQL, {"now": now_moscow, "new_lock": new_lock}
+    )
     user_id = result.scalar_one_or_none()
     if user_id is None:
         raise ValueError("No free users available")
@@ -59,9 +60,9 @@ async def lock_user(database: AsyncSession) -> User:
 
 async def unlock_users(database: AsyncSession) -> int:
     """Разблокировка всех пользователей"""
-    results = await database.execute(update(User).values(locktime=None))
+    result = await database.execute(update(User).values(locktime=None))
     await database.commit()
-    return results.rowcount
+    return result.rowcount  # type: ignore
 
 
 async def delete_user(database: AsyncSession, user_id: UUID) -> bool:

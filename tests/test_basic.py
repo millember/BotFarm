@@ -1,11 +1,9 @@
 # tests/test_basic.py
 from uuid import uuid4
 from httpx import AsyncClient
-from sqlalchemy import text
 
 
 class TestBotFarmBasic:
-
     @staticmethod
     def _by_login(users: list[dict], login: str) -> dict:
         return next(u for u in users if u["login"] == login)

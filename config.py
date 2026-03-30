@@ -1,4 +1,4 @@
-from sqlalchemy import select, text
+from sqlalchemy import text
 from datetime import timedelta, timezone
 
 MOSCOW_TZ = timezone(timedelta(hours=3))
@@ -18,3 +18,4 @@ FROM picked
 WHERE u.id = picked.id
 RETURNING u.id
 """)
+LOCK_DURATION_MINUTES = 30
