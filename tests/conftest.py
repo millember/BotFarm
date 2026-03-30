@@ -1,6 +1,5 @@
 # tests/conftest.py
 import pytest
-import asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -26,13 +25,6 @@ async def override_get_database() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocalTest() as session:
         yield session
 
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Создание event loop для тестовой сессии"""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest.fixture(scope="function", autouse=True)

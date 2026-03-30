@@ -4,7 +4,8 @@ from typing import AsyncGenerator
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://oppennec@localhost:5432/botfarm")
-engine = create_async_engine(DATABASE_URL, echo=True)
+SQL_ECHO = os.getenv("SQL_ECHO", "").lower() in ("1", "true", "yes")
+engine = create_async_engine(DATABASE_URL, echo=SQL_ECHO)
 
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
@@ -15,10 +16,7 @@ Base = declarative_base()
 
 async def get_database() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+        yield session
 
 
 async def init_database():

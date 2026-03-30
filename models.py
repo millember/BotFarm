@@ -3,10 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from database import Base
 import uuid
 from datetime import datetime, timedelta, timezone
-
-# Определяем московский часовой пояс
-MOSCOW_TZ = timezone(timedelta(hours=3))
-
+from config import MOSCOW_TZ
 
 class User(Base):
     __tablename__ = "users"
