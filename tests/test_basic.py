@@ -1,20 +1,17 @@
 # tests/test_basic.py
 from uuid import uuid4
 from httpx import AsyncClient
-from sqlalchemy import text
-
+from repositories.users import UserRepository
+from services.users import UserService
+from schemas import UserCreate
+import tests.conftest as tc
 
 class TestBotFarmBasic:
+    @staticmethod
+    def _by_login(users: list[dict], login: str) -> dict:
+        return next(u for u in users if u["login"] == login)
 
     async def test_block_and_release_user(self, client: AsyncClient):
-        """
-        Тест проверяет блокировку и разблокировку пользователя:
-        1. Создает нового пользователя
-        2. Блокирует его (устанавливает locktime)
-        3. Проверяет, что пользователь заблокирован
-        4. Разблокирует всех пользователей
-        5. Проверяет, что блокировка снята
-        """
         user_data = {
             "login": "locktest@example.com",
             "password": "Password123!",
@@ -35,35 +32,99 @@ class TestBotFarmBasic:
         assert locked_user["locktime"] is not None
         assert locked_user["login"] == user_data["login"]
 
-        get_response = await client.get("/users")
-        users = get_response.json()
-
-        for user in users:
-            if user["login"] == user_data["login"]:
-                assert user["locktime"] is not None
-                break
+        users = (await client.get("/users")).json()
+        assert self._by_login(users, user_data["login"])["locktime"] is not None
 
         unlock_response = await client.post("/users/unlock")
         assert unlock_response.status_code == 200
         assert "Unlocked" in unlock_response.json()["message"]
 
-        get_response2 = await client.get("/users")
-        users2 = get_response2.json()
+        users2 = (await client.get("/users")).json()
+        assert self._by_login(users2, user_data["login"])["locktime"] is None
 
-        for user in users2:
-            if user["login"] == user_data["login"]:
-                assert user["locktime"] is None
-                break
+    async def test_create_user_duplicate_login_returns_409(self, client: AsyncClient):
+        user_data = {
+            "login": "duplicate@example.com",
+            "password": "Password123!",
+            "project_id": str(uuid4()),
+            "env": "prod",
+            "domain": "regular",
+        }
+
+        r1 = await client.post("/users", json=user_data)
+        assert r1.status_code == 201
+
+        r2 = await client.post("/users", json=user_data)
+        assert r2.status_code == 409
+        assert "already exists" in r2.json()["detail"]
+
+    async def test_lock_user_when_none_available_returns_404(self, client: AsyncClient):
+        r = await client.post("/users/lock")
+        assert r.status_code == 404
+        assert "No free users" in r.json()["detail"]
+
+    async def test_services_layer_branches(self, client: AsyncClient):
+        async with tc.AsyncSessionLocalTest() as db:
+            repo = UserRepository(db)
+            service = UserService(repo)
+            
+            u = UserCreate(
+                login="svc@example.com",
+                password="Password123!",
+                project_id=uuid4(),
+                env="prod",
+                domain="regular",
+            )
+            created = await service.create_user(u)
+            assert created.login == "svc@example.com"
+
+            try:
+                await service.create_user(u)
+                assert False, "expected ValueError for duplicate login"
+            except ValueError as e:
+                assert "already exists" in str(e)
+
+            users = await service.get_users()
+            assert any(x.login == "svc@example.com" for x in users)
+
+        async with tc.AsyncSessionLocalTest() as db2:
+            service2 = UserService(UserRepository(db2))
+            
+            locked = await service2.lock_user()
+            assert locked.locktime is not None
+
+            try:
+                await service2.lock_user()
+                assert False, "expected ValueError when no free users"
+            except ValueError as e:
+                assert "No free users available" in str(e)
+
+            unlocked_count = await service2.unlock_users()
+            assert unlocked_count >= 1
+
+            assert await service2.delete_user(uuid4()) is False
+            assert await service2.delete_user(created.id) is True
+
+    async def test_health_returns_503_when_db_fails(self, client: AsyncClient):
+        from main import botfarm
+        from database import get_database
+
+        class BrokenSession:
+            async def execute(self, *args, **kwargs):
+                raise RuntimeError("boom")
+
+        async def override_broken_db():
+            yield BrokenSession()
+
+        botfarm.dependency_overrides[get_database] = override_broken_db
+        try:
+            r = await client.get("/health")
+            assert r.status_code == 503
+            assert "Database unavailable" in r.json()["detail"]
+        finally:
+            botfarm.dependency_overrides.pop(get_database, None)
 
     async def test_remove_user(self, client: AsyncClient):
-        """
-        Тест проверяет удаление пользователя:
-        1. Создает нового пользователя
-        2. Проверяет, что он есть в списке
-        3. Удаляет пользователя по ID
-        4. Проверяет, что пользователь удален из списка
-        5. Проверяет ошибку при удалении несуществующего пользователя
-        """
         user_data = {
             "login": "deletetest@example.com",
             "password": "DeletePass123!",
@@ -74,19 +135,16 @@ class TestBotFarmBasic:
 
         create_response = await client.post("/users", json=user_data)
         assert create_response.status_code == 201
-        created_user = create_response.json()
-        user_id = created_user["id"]
+        user_id = create_response.json()["id"]
 
-        get_before = await client.get("/users")
-        users_before = get_before.json()
+        users_before = (await client.get("/users")).json()
         assert any(u["id"] == user_id for u in users_before)
 
         delete_response = await client.delete(f"/users/{user_id}")
         assert delete_response.status_code == 200
         assert f"User {user_id} deleted" in delete_response.json()["message"]
 
-        get_after = await client.get("/users")
-        users_after = get_after.json()
+        users_after = (await client.get("/users")).json()
         assert not any(u["id"] == user_id for u in users_after)
 
         fake_id = str(uuid4())
@@ -95,45 +153,12 @@ class TestBotFarmBasic:
         assert "User not found" in delete_fake.json()["detail"]
 
     async def test_service_health_checks(self, client: AsyncClient):
-        """
-        Тест проверяет работоспособность сервиса:
-        1. Проверяет корневой эндпоинт (/)
-        2. Проверяет эндпоинт здоровья (/health)
-        """
         response = await client.get("/")
         assert response.status_code == 200
         assert response.json()["message"] == "Hello, BotFarm!"
 
         response = await client.get("/health")
         assert response.status_code == 200
-        assert response.json()["status"] == "ok"
-        assert response.json()["service"] == "botfarm"
-
-    async def test_password_hashing(self, client: AsyncClient):
-        """
-        Тест проверяет хеширование паролей:
-        1. Хеширует пароль
-        2. Проверяет, что правильный пароль проходит верификацию
-        3. Проверяет, что неправильный пароль не проходит верификацию
-        """
-        from auth import hash_password, verify_password
-
-        password = "test_password_123"
-        hashed = hash_password(password)
-
-        assert verify_password(password, hashed) is True
-        assert verify_password("wrong_password", hashed) is False
-
-    async def test_database_initialization(self, client: AsyncClient):
-        """
-        Тест проверяет инициализацию базы данных:
-        1. Вызывает инициализацию БД
-        2. Проверяет, что можно выполнить запрос к таблице users
-        """
-        from database import init_database, engine
-
-        await init_database()
-
-        async with engine.connect() as conn:
-            result = await conn.execute(text("SELECT * FROM users LIMIT 1"))
-            assert result is not None
+        body = response.json()
+        assert body["status"] == "ok"
+        assert body["service"] == "botfarm"

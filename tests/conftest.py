@@ -1,18 +1,18 @@
 # tests/conftest.py
 import pytest
-import asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
-from sqlalchemy import text
 import os
 
 from main import botfarm
 from database import Base, get_database
 
 # Тестовая база данных
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://oppennec:password@db:5432/botfarm")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql+asyncpg://oppennec:password@db:5432/botfarm"
+)
 
 engine_test = create_async_engine(DATABASE_URL, echo=False, poolclass=NullPool)
 
@@ -25,14 +25,6 @@ async def override_get_database() -> AsyncGenerator[AsyncSession, None]:
     """Переопределение зависимости для тестов"""
     async with AsyncSessionLocalTest() as session:
         yield session
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Создание event loop для тестовой сессии"""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest.fixture(scope="function", autouse=True)

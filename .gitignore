@@ -48,3 +48,16 @@ check_db.py  # если это временный файл (опциональн
 
 # Alembic миграции (если будете использовать)
 # migrations/  # раскомментируйте, если хотите исключить миграции
+
+BotFarm-version_1.0.
+запросы.md
+запуск докера
+ошибки.md
+BotFarm-version_1.1_poetry
+BotFarm-version_1.2_bez_bag
+.env
+.pytest_cache/
+__pycache__/
+*.pyc
+.coverage
+htmlcov/

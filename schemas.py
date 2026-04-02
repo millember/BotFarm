@@ -1,18 +1,27 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
+from typing import Literal
+
+Env = Literal["prod", "stage", "preriod"]
+Domain = Literal["canary", "regular"]
 
 
-class UserCreate(BaseModel):
+class BaseUser(BaseModel):
     login: EmailStr
-    password: str
     project_id: UUID
-    env: str
-    domain: str
+    env: Env
+    domain: Domain
 
 
-class UserResponse(UserCreate):
+class UserCreate(BaseUser):
+    password: str
+
+
+class UserResponse(BaseUser):
     id: UUID
     created_at: datetime
     locktime: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
