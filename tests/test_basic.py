@@ -1,7 +1,10 @@
 # tests/test_basic.py
 from uuid import uuid4
 from httpx import AsyncClient
-
+from repositories.users import UserRepository
+from services.users import UserService
+from schemas import UserCreate
+import tests.conftest as tc
 
 class TestBotFarmBasic:
     @staticmethod
@@ -61,17 +64,10 @@ class TestBotFarmBasic:
         assert "No free users" in r.json()["detail"]
 
     async def test_services_layer_branches(self, client: AsyncClient):
-        from services.users import (
-            create_user as create_user_service,
-            delete_user as delete_user_service,
-            get_users as get_users_service,
-            lock_user as lock_user_service,
-            unlock_users as unlock_users_service,
-        )
-        from schemas import UserCreate
-        import tests.conftest as tc
-
         async with tc.AsyncSessionLocalTest() as db:
+            repo = UserRepository(db)
+            service = UserService(repo)
+            
             u = UserCreate(
                 login="svc@example.com",
                 password="Password123!",
@@ -79,34 +75,35 @@ class TestBotFarmBasic:
                 env="prod",
                 domain="regular",
             )
-            created = await create_user_service(db, u)
+            created = await service.create_user(u)
             assert created.login == "svc@example.com"
 
             try:
-                await create_user_service(db, u)
+                await service.create_user(u)
                 assert False, "expected ValueError for duplicate login"
             except ValueError as e:
                 assert "already exists" in str(e)
 
-            users = await get_users_service(db)
+            users = await service.get_users()
             assert any(x.login == "svc@example.com" for x in users)
 
         async with tc.AsyncSessionLocalTest() as db2:
-            locked = await lock_user_service(db2)
+            service2 = UserService(UserRepository(db2))
+            
+            locked = await service2.lock_user()
             assert locked.locktime is not None
 
             try:
-                await lock_user_service(db2)
+                await service2.lock_user()
                 assert False, "expected ValueError when no free users"
             except ValueError as e:
                 assert "No free users available" in str(e)
 
-            unlocked_count = await unlock_users_service(db2)
+            unlocked_count = await service2.unlock_users()
             assert unlocked_count >= 1
 
-            assert await delete_user_service(db2, uuid4()) is False
-
-            assert await delete_user_service(db2, created.id) is True
+            assert await service2.delete_user(uuid4()) is False
+            assert await service2.delete_user(created.id) is True
 
     async def test_health_returns_503_when_db_fails(self, client: AsyncClient):
         from main import botfarm

@@ -55,3 +55,9 @@ BotFarm-version_1.0.
 ошибки.md
 BotFarm-version_1.1_poetry
 BotFarm-version_1.2_bez_bag
+.env
+.pytest_cache/
+__pycache__/
+*.pyc
+.coverage
+htmlcov/
